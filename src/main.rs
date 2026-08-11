@@ -2,13 +2,12 @@ mod render;
 
 use anyhow::{Context, Result, bail};
 use axum::Router;
-use axum::extract::{Path as UrlPath, Query, State};
+use axum::extract::{Path as UrlPath, State};
 use axum::http::{StatusCode, header};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::get;
 use clap::Parser;
-use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -25,10 +24,6 @@ struct Cli {
     /// Port to listen on (0 picks a free one)
     #[arg(short, long, default_value_t = 0)]
     port: u16,
-    /// Default page style
-    #[arg(short, long, default_value = render::STYLE_CLASSY,
-          value_parser = [render::STYLE_CLASSY, render::STYLE_BAREBONES])]
-    style: String,
     /// Don't open a browser
     #[arg(long)]
     no_open: bool,
@@ -39,7 +34,6 @@ struct App {
     root: PathBuf,
     /// In single-file mode, the file (inside `root`) served at `/`.
     single_file: Option<PathBuf>,
-    default_style: String,
     reload_tx: broadcast::Sender<()>,
 }
 
@@ -63,7 +57,6 @@ async fn main() -> Result<()> {
     let app = Arc::new(App {
         root,
         single_file,
-        default_style: cli.style,
         reload_tx,
     });
     let router = Router::new()
@@ -154,26 +147,17 @@ async fn sse_reload(State(app): State<Arc<App>>) -> impl IntoResponse {
 
 async fn serve_asset(UrlPath(file): UrlPath<String>) -> Response {
     let (body, mime) = match file.as_str() {
-        "classy.css" => (include_str!("../assets/classy.css"), "text/css"),
-        "barebones.css" => (include_str!("../assets/barebones.css"), "text/css"),
+        "style.css" => (include_str!("../assets/style.css"), "text/css"),
         "reload.js" => (include_str!("../assets/reload.js"), "text/javascript"),
         _ => return StatusCode::NOT_FOUND.into_response(),
     };
     ([(header::CONTENT_TYPE, mime)], body).into_response()
 }
 
-async fn serve_path(
-    State(app): State<Arc<App>>,
-    path: Option<UrlPath<String>>,
-    Query(query): Query<HashMap<String, String>>,
-) -> Response {
-    let style = match query.get("style").map(String::as_str) {
-        Some(s @ (render::STYLE_CLASSY | render::STYLE_BAREBONES)) => s.to_string(),
-        _ => app.default_style.clone(),
-    };
+async fn serve_path(State(app): State<Arc<App>>, path: Option<UrlPath<String>>) -> Response {
     let rel = path.map(|UrlPath(p)| p).unwrap_or_default();
     match resolve(&app, &rel) {
-        Ok(full) => serve_resolved(&app, &rel, &full, &style).await,
+        Ok(full) => serve_resolved(&app, &rel, &full).await,
         Err(err) => (StatusCode::NOT_FOUND, format!("{err}")).into_response(),
     }
 }
@@ -197,7 +181,7 @@ fn resolve(app: &App, rel: &str) -> Result<PathBuf> {
     Ok(app.root.join(rel_path))
 }
 
-async fn serve_resolved(app: &App, rel: &str, full: &Path, style: &str) -> Response {
+async fn serve_resolved(app: &App, rel: &str, full: &Path) -> Response {
     if full.is_dir() {
         // Single-file mode is about one document; don't grow into a browser
         // for the parent tree.
@@ -205,10 +189,10 @@ async fn serve_resolved(app: &App, rel: &str, full: &Path, style: &str) -> Respo
             return (StatusCode::NOT_FOUND, "not found").into_response();
         }
         if !rel.is_empty() && !rel.ends_with('/') {
-            let target = format!("/{}/?style={style}", render::encode_href(rel));
+            let target = format!("/{}/", render::encode_href(rel));
             return Redirect::temporary(&target).into_response();
         }
-        return match listing(rel, full, style) {
+        return match listing(rel, full) {
             Ok(page) => Html(page).into_response(),
             Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{err}")).into_response(),
         };
@@ -221,7 +205,7 @@ async fn serve_resolved(app: &App, rel: &str, full: &Path, style: &str) -> Respo
             Ok(source) => {
                 let title = full.file_name().unwrap_or_default().to_string_lossy();
                 let body = render::markdown_body(&source);
-                Html(render::page(&title, &body, style)).into_response()
+                Html(render::page(&title, &body)).into_response()
             }
             Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("{err}")).into_response(),
         };
@@ -233,7 +217,7 @@ async fn serve_resolved(app: &App, rel: &str, full: &Path, style: &str) -> Respo
     }
 }
 
-fn listing(rel: &str, dir: &Path, style: &str) -> Result<String> {
+fn listing(rel: &str, dir: &Path) -> Result<String> {
     let mut entries = Vec::new();
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
@@ -250,7 +234,7 @@ fn listing(rel: &str, dir: &Path, style: &str) -> Result<String> {
     let rel_path = Path::new(rel.trim_end_matches('/'));
     let body = render::listing_body(rel_path, &entries);
     let title = format!("/{rel}");
-    Ok(render::page(&title, &body, style))
+    Ok(render::page(&title, &body))
 }
 
 fn is_markdown(path: &Path) -> bool {

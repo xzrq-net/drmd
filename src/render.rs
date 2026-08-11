@@ -23,9 +23,6 @@ pub fn encode_href(path: &str) -> String {
     utf8_percent_encode(path, HREF_SET).to_string()
 }
 
-pub const STYLE_CLASSY: &str = "classy";
-pub const STYLE_BAREBONES: &str = "barebones";
-
 pub fn escape_html(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -52,14 +49,8 @@ pub fn markdown_body(source: &str) -> String {
     html
 }
 
-/// Wrap rendered content in the page chrome: stylesheet, style toggle,
-/// live-reload script.
-pub fn page(title: &str, body: &str, style: &str) -> String {
-    let other = if style == STYLE_BAREBONES {
-        STYLE_CLASSY
-    } else {
-        STYLE_BAREBONES
-    };
+/// Wrap rendered content in the page chrome: stylesheet, live-reload script.
+pub fn page(title: &str, body: &str) -> String {
     format!(
         r#"<!doctype html>
 <html lang="en">
@@ -67,10 +58,9 @@ pub fn page(title: &str, body: &str, style: &str) -> String {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
-<link rel="stylesheet" href="/__assets/{style}.css">
+<link rel="stylesheet" href="/__assets/style.css">
 </head>
 <body>
-<nav class="drmd-toolbar"><a href="?style={other}">{other}</a></nav>
 <main>
 {body}
 </main>

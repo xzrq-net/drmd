@@ -35,3 +35,10 @@ passthrough (inline HTML in your own markdown is a feature, so `<script>` in
 a viewed file executes), symlinks followed out of the root, hidden/non-md
 files fetchable by direct URL, brief SSE window where a save during page load
 is missed.
+
+## 2026-08-10 — style machinery removed (teepma)
+
+User looked at both grades and kept barebones. Deleted classy.css, the
+`--style` flag, `?style=` override, and the toolbar toggle; barebones.css
+renamed to style.css and hardcoded. `page()` and the handlers lost their
+style parameter.
