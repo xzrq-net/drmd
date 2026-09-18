@@ -64,7 +64,7 @@ pub fn page(title: &str, body: &str) -> String {
 <main>
 {body}
 </main>
-<script src="/__assets/reload.js"></script>
+<script type="module" src="/__assets/reload.js"></script>
 </body>
 </html>
 "#,

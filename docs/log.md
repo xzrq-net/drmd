@@ -42,3 +42,28 @@ User looked at both grades and kept barebones. Deleted classy.css, the
 `--style` flag, `?style=` override, and the toolbar toggle; barebones.css
 renamed to style.css and hardcoded. `page()` and the handlers lost their
 style parameter.
+
+## 2026-09-18 — Mermaid diagrams (35sc8m)
+
+Fenced `mermaid` blocks now render as SVGs. The browser reads the code block's
+text content, preserving Markdown's escaping, and uses the official
+[Mermaid render API](https://mermaid.js.org/config/usage#api-usage). Invalid
+diagrams keep their source with an error beside it; other diagrams continue.
+Scroll restoration waits for diagram layout, including after SSE live reload.
+
+Selected a pinned, embedded Mermaid 12.0.0 standalone browser bundle. This
+adds 5.6 MB to the embedded assets, but works offline with the existing Cargo
+and Nix builds. The bundle loads only on pages containing Mermaid fences.
+A CDN would introduce a runtime network dependency; server-side rendering via
+[Mermaid CLI](https://github.com/mermaid-js/mermaid-cli) would require Node and
+a headless browser. The ESM distribution needs multiple additional chunks.
+Bundle provenance, checksum, license, and update instructions live in
+`assets/vendor/README.md`. Mermaid uses its strict security mode; the existing
+raw-HTML Markdown policy remains as documented above.
+
+Verified in Chromium with external requests blocked: flowcharts, sequence,
+class, state and pie diagrams; frontmatter configuration; nested and tilde
+fences; escaped labels; multiple diagrams with syntax errors between them;
+renderer-load failure; single-file and directory modes; file-change reload
+and scroll restoration. Also passed formatting, Clippy, and `nix flake check`.
+Cargo currently has no Rust unit tests. Browser checks were session-local.

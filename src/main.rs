@@ -149,6 +149,11 @@ async fn serve_asset(UrlPath(file): UrlPath<String>) -> Response {
     let (body, mime) = match file.as_str() {
         "style.css" => (include_str!("../assets/style.css"), "text/css"),
         "reload.js" => (include_str!("../assets/reload.js"), "text/javascript"),
+        "diagrams.js" => (include_str!("../assets/diagrams.js"), "text/javascript"),
+        "mermaid.min.js" => (
+            include_str!("../assets/vendor/mermaid.min.js"),
+            "text/javascript",
+        ),
         _ => return StatusCode::NOT_FOUND.into_response(),
     };
     ([(header::CONTENT_TYPE, mime)], body).into_response()
